@@ -1,8 +1,9 @@
-import { GetStaticPaths, GetStaticProps } from 'next';
-import Head from 'next/head';
-import { ParsedUrlQuery } from 'querystring';
-import Title from '../../components/Title';
-import { getProduct, getProducts, Product } from '../../lib/products';
+import { GetStaticPaths, GetStaticProps } from "next";
+import Head from "next/head";
+import { ParsedUrlQuery } from "querystring";
+import Title from "../../components/Title";
+import { getProduct, getProducts, Product } from "../../lib/products";
+import { ApiError } from "../../lib/api";
 
 interface ProductPageParams extends ParsedUrlQuery {
   id: string;
@@ -18,7 +19,7 @@ export const getStaticPaths: GetStaticPaths<ProductPageParams> = async () => {
     paths: products.map((product) => ({
       params: { id: product.id.toString() },
     })),
-    fallback: 'blocking',
+    fallback: "blocking",
   };
 };
 
@@ -27,15 +28,18 @@ export const getStaticProps: GetStaticProps<ProductPageProps, ProductPageParams>
     const product = await getProduct(id);
     return {
       props: { product },
-      revalidate: 30, // seconds
+      revalidate: parseInt(process.env.REVALIDATE_SECONDS),
     };
   } catch (err) {
-    return { notFound: true };
+    if (err instanceof ApiError && err.status === 404) {
+      return { notFound: true };
+    }
+    throw err;
   }
 };
 
 const ProductPage: React.FC<ProductPageProps> = ({ product }) => {
-  console.log('[ProductPage] render:', product);
+  console.log("[ProductPage] render:", product);
   return (
     <>
       <Head>
@@ -43,9 +47,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ product }) => {
       </Head>
       <main className="px-6 py-4">
         <Title>{product.title}</Title>
-        <p>
-          {product.description}
-        </p>
+        <p>{product.description}</p>
       </main>
     </>
   );
